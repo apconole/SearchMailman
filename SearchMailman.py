@@ -61,7 +61,7 @@ def webdatetime(txt):
 
 def cached_url_filename(url):
     HOMEDIR=os.path.expanduser('~')
-    fs_converted_url = re.sub('[/:@]*', '_', url)
+    fs_converted_url = re.sub('[/:@]+', '_', url)
     if not os.path.exists(HOMEDIR + '/.sma_cache'):
         os.makedirs(HOMEDIR + '/.sma_cache')
     return HOMEDIR + '/.sma_cache/' + fs_converted_url
