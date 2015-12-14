@@ -66,7 +66,7 @@ def cached_url_filename(url):
         os.makedirs(HOMEDIR + '/.sma_cache')
     return HOMEDIR + '/.sma_cache/' + fs_converted_url
     
-def cached_url_open(url):
+def cached_url_open(url, is_zipped=False):
     fs_converted_url = cached_url_filename(url)
     if os.path.exists(fs_converted_url):
         request = urllib2.Request(url)
@@ -85,6 +85,10 @@ def cached_url_open(url):
     response = urllib2.urlopen(url)
     result = response.read()
 
+    if is_zipped:
+        zipdata = gzip.GzipFile(fileobj=StringIO.StringIO(result))
+        result = zipdata.read()
+    
     fileop = open(fs_converted_url, 'w')
     fileop.write(result)
     
@@ -105,10 +109,10 @@ def mailman_archives(MailmanUrl):
 
 def get_mailman_mailbox_from_archive(ArchiveUrl):
     # print "Scanning %s" % ArchiveUrl
-    zipped = cached_url_open(ArchiveUrl)
-    unzipped = gzip.GzipFile(fileobj=StringIO.StringIO(zipped))
+    unzipped = cached_url_open(ArchiveUrl, True)
+    #unzipped = gzip.GzipFile(fileobj=StringIO.StringIO(zipped))
 
-    return streammedMbox(unzipped.read())
+    return streammedMbox(unzipped)
 
 class match_filter(object):
     REQUIRED_MATCH=0
