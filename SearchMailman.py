@@ -309,12 +309,41 @@ def make_filters(argslist):
 
     return return_filter
 
+def usage():
+    print "Usage: %s [OPTIONS] ARCHIVE FILTER..." % sys.argv[0]
+    print "Search mailman archives"
+    print "Entries are reported in time descending order (most recent first)"
+    print ""
+    print "Options:"
+    print " -c                        Clear archive cache instead of search"
+    print " -o [PATH]                 Save off matches to the path specified"
+    print " -h                        This help message"
+    print ""
+    print "Filter:"
+    print "Filters are specified in the generic form FIELD OPERATION [VALUE]. The"
+    print "filter will extract message fields by name (which is the FIELD above),"
+    print "and run the OPERATION against that field. If OPERATION requires data"
+    print "the VALUE of that data must be specified after. Optionally, the 'not' or"
+    print "the '!' value can be used to specify the negative."
+    print ""
+    print "Valid OPERATIONS are:"
+    print "is, equals, ==            Match the FIELD against VALUE exactly"
+    print "contains, ~=              Match the FIELD against VALUE weakly, or as a"
+    print "                          pythonic regular expression"
+    print "present, available        Match whether the FIELD exists"
+    print ""
+    print "Filters can appear sequentially, and are by default joined together as"
+    print "LOGICAL AND filters. Support for LOGICAL OR is provided with either the 'or'"
+    print "or '|' values. Likewise, LOGICAL AND support can be re-enabled using the"
+    print "'and' or '&' values. These behave as polish-notation operators, so they"
+    print "apply to every filter specified AFTER their appearance."
+
 if __name__ == "__main__":
 
     mbx = None
 
     try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'o:c')
+        optlist, args = getopt.getopt(sys.argv[1:], 'o:ch')
     except:
         print "Failed to getopt:"
         print args
@@ -327,6 +356,9 @@ if __name__ == "__main__":
             mbx = mailbox.mbox(a)
         elif o == '-c':
             bClear = True
+        elif o == '-h':
+            usage()
+            sys.exit(0)
 
     bFound = False
     filters = None
