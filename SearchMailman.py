@@ -321,6 +321,7 @@ def usage():
     print "Options:"
     print " -c                        Clear archive cache instead of search"
     print " -o [PATH]                 Save off matches to the path specified"
+    print " -u                        Seek the Mailman URL for this message (net only)"
     print " -h                        This help message"
     print ""
     print "Filter:"
@@ -347,14 +348,16 @@ if __name__ == "__main__":
     mbx = None
 
     try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'o:ch')
+        optlist, args = getopt.getopt(sys.argv[1:], 'o:chu')
     except:
         print "Failed to getopt:"
         print args
         sys.exit(1)
 
     clear_cached_files = False
-        
+
+    find_mailman_url = False
+    
     for o,a in optlist:
         if o == '-o':
             mbx = mailbox.mbox(a)
@@ -363,6 +366,8 @@ if __name__ == "__main__":
         elif o == '-h':
             usage()
             sys.exit(0)
+        elif o == '-u':
+            find_mailman_url = True
 
     found_message = False
     filters = None
@@ -386,7 +391,10 @@ if __name__ == "__main__":
             for message in newmsgs:
                 found_message = True
                 if mbx is not None: mbx.add(message)
-                print "%s (%s) %s" % (message['from'], message['subject'], message['date'])
+                subj = message['subject'].replace('\r', ' ').replace('\n', ' ').replace('\t', '')
+                print "%s (%s) %s" % (message['from'], subj, message['date'])
+                if find_mailman_url:
+                    print " ** Not supported..."
         else:
             delfile = cached_url_filename(mailarch_url)
             print "Removing [%s]" % delfile
