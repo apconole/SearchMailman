@@ -353,18 +353,18 @@ if __name__ == "__main__":
         print args
         sys.exit(1)
 
-    bClear = False
+    clear_cached_files = False
         
     for o,a in optlist:
         if o == '-o':
             mbx = mailbox.mbox(a)
         elif o == '-c':
-            bClear = True
+            clear_cached_files = True
         elif o == '-h':
             usage()
             sys.exit(0)
 
-    bFound = False
+    found_message = False
     filters = None
 
     BaseUrl = args[0]
@@ -379,12 +379,12 @@ if __name__ == "__main__":
 
     for arch in mailman_archives(BaseUrl):
         mailarch_url = BaseUrl + arch
-        if not bClear:
+        if not clear_cached_files:
             if filters is None:
                 filters = make_filters(args[1:])
             newmsgs = mbox_messages_matching(mailarch_url, filters)
             for message in newmsgs:
-                bFound = True
+                found_message = True
                 if mbx is not None: mbx.add(message)
                 print "%s (%s) %s" % (message['from'], message['subject'], message['date'])
         else:
@@ -392,6 +392,6 @@ if __name__ == "__main__":
             print "Removing [%s]" % delfile
             os.remove(delfile)
             
-    if bFound:
+    if found_message:
         sys.exit(0)
     sys.exit(1)
