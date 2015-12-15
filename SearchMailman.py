@@ -140,7 +140,7 @@ class match_filter(object):
         
         if part_text is not None and part_text == self._match_data:
             matching_type = match_filter.MATCH_TYPE_EXACT
-        elif self._match_regex:
+        elif self._match_regex and self._match_data is not None and part_text is not None:
             result = re.findall(self._match_data, part_text)
             if result is not None and len(result) > 0:
                 matching_type = match_filter.MATCH_TYPE_REGEX
