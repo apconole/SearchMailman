@@ -60,11 +60,20 @@ def webdatetime(txt):
         raise v
 
 def cached_url_filename(url):
-    HOMEDIR=os.path.expanduser('~')
     fs_converted_url = re.sub('[/:@]+', '_', url)
-    if not os.path.exists(HOMEDIR + '/.sma_cache'):
-        os.makedirs(HOMEDIR + '/.sma_cache')
-    return HOMEDIR + '/.sma_cache/' + fs_converted_url
+
+    if os.getenv("SMA_CACHE_LOCATION"):
+        path_to_fs = os.getenv("SMA_CACHE_LOCATION")
+    else:
+        path_to_fs = os.path.expanduser('~') + '/.sma_cache'
+        
+    if not os.path.exists(path_to_fs):
+        os.makedirs(path_to_fs)
+    return path_to_fs + '/' + fs_converted_url
+    
+def url_open(url):
+    response = urllib2.urlopen(url)
+    return response.read()
     
 def cached_url_open(url, is_zipped=False):
     fs_converted_url = cached_url_filename(url)
@@ -82,8 +91,7 @@ def cached_url_open(url, is_zipped=False):
             fileop = open(fs_converted_url, 'r')
             return fileop.read()
         
-    response = urllib2.urlopen(url)
-    result = response.read()
+    result = url_open(url)
 
     if is_zipped:
         zipdata = gzip.GzipFile(fileobj=StringIO.StringIO(result))
