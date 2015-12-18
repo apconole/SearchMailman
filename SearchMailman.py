@@ -391,6 +391,12 @@ if __name__ == "__main__":
         BaseUrl = MailMan + "/archives/" + args[0] + "/"
 
     for arch in mailman_archives(BaseUrl):
+        if find_mailman_url:
+            try:
+                archive_list = url_open(BaseUrl + arch.replace('.txt.gz', '/thread.html')).replace('\n', ' ').replace('\r', ' ')
+            except:
+                archive_list = None
+        
         mailarch_url = BaseUrl + arch
         if not clear_cached_files:
             if filters is None:
@@ -401,8 +407,12 @@ if __name__ == "__main__":
                 if mbx is not None: mbx.add(message)
                 subj = message['subject'].replace('\r', ' ').replace('\n', ' ').replace('\t', '')
                 print "%s (%s) %s" % (message['from'], subj, message['date'])
-                if find_mailman_url:
-                    print " ** Not supported..."
+                if find_mailman_url and archive_list:
+                    subj_find = '<a name="([0-9]*)" href="(msg[0-9]*).html">' + subj.replace('[', '\\[').replace(']', '\\]') + "</a></strong>, <em>" + message['from'] + "</em> ?</?(ul|li)"
+                    matches = re.finditer(subj_find, archive_list)
+                    if not matches: continue
+                    for match in matches:
+                        print " *** %s" % match.string[match.start():match.end()]
         else:
             delfile = cached_url_filename(mailarch_url)
             print "Removing [%s]" % delfile
