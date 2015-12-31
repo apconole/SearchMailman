@@ -403,11 +403,23 @@ if __name__ == "__main__":
                 subj = message['subject'].replace('\r', ' ').replace('\n', ' ').replace('\t', '')
                 print "%s (%s) %s" % (message['from'], subj, message['date'])
                 if find_mailman_url and archive_list:
-                    subj_find = '<a name="([0-9]*)" href="(msg[0-9]*).html">' + subj.replace('[', '\\[').replace(']', '\\]') + "</a></strong>, <em>" + message['from'] + "</em> ?</?(ul|li)"
+                    print " * Searching URLs at %s" % BaseUrl + arch.replace('.txt.gz', '/thread.html')
+
+                    # first, try for mhonarc
+                    subj_find = '<(a|A) (name|NAME)="([0-9]*)" (href|HREF)="(msg[0-9]*).html">' + subj.replace('[', '\\[').replace(']', '\\]') + "</(a|A)>(</(strong|STRONG)>),? ?(<(em|EM)>)?" + message['from'] + "(</(em|EM)>)? ?</?(ul|li|UL|LI)"
                     matches = re.finditer(subj_find, archive_list)
-                    if not matches: continue
+                    matches = list(matches)
+                    if len(matches) == 0:
+                        print " * Possibly pipermail"
+                        subj_find = '<LI><A HREF="([0-9]*.html)">' + subj.replace('[', '\\[').replace(']', '\\]')
+                        matches = re.finditer(subj_find, archive_list)
+                        matches = list(matches)
+
                     for match in matches:
-                        print " *** %s" % match.string[match.start():match.end()]
+                        msgurl_match = re.search('[0-9]*.html', match.string[match.start():match.end()])
+                        msgurl = msgurl_match.string[msgurl_match.start():msgurl_match.end()]
+                        print " *** %s" % BaseUrl + arch.replace('.txt.gz', '/') + msgurl
+                    print " * Done."
         else:
             delfile = cached_url_filename(mailarch_url)
             print "Removing [%s]" % delfile
