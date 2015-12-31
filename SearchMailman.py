@@ -377,6 +377,10 @@ if __name__ == "__main__":
         elif o == '-u':
             find_mailman_url = True
 
+    if len(args) == 0:
+        usage()
+        sys.exit(1)
+    
     found_message = False
     filters = None
 
