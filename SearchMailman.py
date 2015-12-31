@@ -387,12 +387,8 @@ if __name__ == "__main__":
     BaseUrl = args[0]
 
     if os.getenv('SMA_ARCHIVE_URL') and not (BaseUrl.find("http://") == 0 or BaseUrl.find("https://") == 0):
-        MailMan, instances = re.subn("/mailman(/listinfo)?/?$", "/", os.getenv('SMA_ARCHIVE_URL'))
-        if instances == 0:
-            print "SMA_ARCHIVE_URL appears corrupt. It must point to the listinfo URL"
-            print "ex: http://server.com/mailman/listinfo/ or https://server.com/mailman"
-            sys.exit(1)
-        BaseUrl = MailMan + "/archives/" + args[0] + "/"
+        MailMan, instances = re.subn("/mailman(/listinfo)?/?$", "/archives/", os.getenv('SMA_ARCHIVE_URL'))
+        BaseUrl = MailMan + args[0] + "/"
 
     for arch in mailman_archives(BaseUrl):
         if find_mailman_url:
