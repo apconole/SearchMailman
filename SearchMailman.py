@@ -281,18 +281,12 @@ def make_filters(argslist):
                 current_filter_list.push_filter(match_filter(part, match_filter.NOT_REQUIRED_EXACT_MATCH, '.*'))
             else:
                 current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_NOT_MATCH, '.*'))
-            part = None
-            op = None
-            valu = None
         elif string_match_in_list(op, ["==", "equals", "is"]):
             if valu is not None:
                 if not negateFlag:
                     current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_MATCH, valu))
                 else:
                     current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_NOT_MATCH, valu))
-                op = None
-                part = None
-                valu = None
             else:
                 getVal = True
                 continue
@@ -302,15 +296,16 @@ def make_filters(argslist):
                     current_filter_list.push_filter(match_filter(part, match_filter.NOT_REQUIRED_EXACT_MATCH, valu))
                 else:
                     current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_NOT_MATCH, valu))
-                op = None
-                part = None
-                valu = None
             else:
                 getVal = True
                 continue
         else:
             print "Unknown op: %s" % (op)
             sys.exit(1)
+
+        part = None
+        op = None
+        valu = None
 
     if current_filter_list.length():
         return_filter.push_filter(current_filter_list)
