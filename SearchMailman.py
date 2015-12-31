@@ -107,7 +107,7 @@ def mailman_archives(MailmanUrl):
     grp = re.findall('href="[^"]+.txt.gz"', html)
 
     archives = []
-    
+
     for archive in grp:
         archive1 = re.sub(r'href=', '', archive)
         app = re.sub(r'"', '', archive1)
@@ -126,7 +126,7 @@ class match_filter(object):
     REQUIRED_MATCH=0
     REQUIRED_NOT_MATCH = 1
     NOT_REQUIRED_EXACT_MATCH = 2
-    
+
     def __init__(self, mail_section, match_type=REQUIRED_MATCH, match_data=''):
         self._mail_section = mail_section
         self._match_type = match_type
@@ -139,30 +139,30 @@ class match_filter(object):
     MATCH_TYPE_PARTIAL = 1
     MATCH_TYPE_UNMATCHED = 2
     MATCH_TYPE_REGEX = 3
-    
+
     def length(self):
         return 0
 
     def part_match(self, part_text):
         matching_type = None
-        
+
         if part_text is not None and part_text == self._match_data:
             matching_type = match_filter.MATCH_TYPE_EXACT
         elif self._match_regex and self._match_data is not None and part_text is not None:
             result = re.findall(self._match_data, part_text)
             if result is not None and len(result) > 0:
                 matching_type = match_filter.MATCH_TYPE_REGEX
-        
+
         if part_text is not None and matching_type is None and self._match_data in part_text:
             matching_type = match_filter.MATCH_TYPE_PARTIAL
-            
+
         if self._match_type == match_filter.REQUIRED_MATCH:
             if matching_type != match_filter.MATCH_TYPE_EXACT:
                 matching_type = None
 
         if matching_type is None:
             matching_type = match_filter.MATCH_TYPE_UNMATCHED
-        
+
         if self._match_type == match_filter.REQUIRED_NOT_MATCH:
             if matching_type is match_filter.MATCH_TYPE_UNMATCHED:
                 return match_filter.MATCH_TYPE_EXACT
@@ -185,7 +185,7 @@ class date_filter(match_filter):
     AFTER_DATE = 1
     def __init__(self, dateToMatchStr):
         self._match_regex = False
-        
+
 class and_filter(match_filter):
     def __init__(self, filter_list):
         self._filters = filter_list
@@ -195,17 +195,17 @@ class and_filter(match_filter):
 
     def length(self):
         return len(self._filters)
-    
+
     def part_match(self, part_text):
         for mfilter in self._filters:
             if mfilter.does_match(part_text) == match_filter.MATCH_TYPE_UNMATCHED:
                 return match_filter.MATCH_TYPE_UNMATCHED
-            
+
         return match_filter.MATCH_TYPE_EXACT
 
     def does_match(self, message):
         return self.part_match(message)
-    
+
 class or_filter(match_filter):
     def __init__(self, filter_list):
         self._filters = filter_list
@@ -222,10 +222,10 @@ class or_filter(match_filter):
                 return match_filter.MATCH_TYPE_EXACT
 
         return match_filter.MATCH_TYPE_UNMATCHED
-    
+
     def does_match(self, message):
         return self.part_match(message)
-    
+
 def mbox_messages_matching(ArchiveUrl, TopFilter):
     mbx = get_mailman_mailbox_from_archive(ArchiveUrl)
     matchingMsgs = []
@@ -246,17 +246,17 @@ def make_filters(argslist):
     valu = None
 
     return_filter = and_filter([])
-    
+
     current_filter_list = and_filter([])
 
     getVal = False
     negateFlag = False
-    
+
     for arg in argslist:
         if string_match_in_list(arg, ["not" "!"]):
             negateFlag = True
             continue
-        
+
         if part is None:
             part = arg
 
@@ -271,7 +271,7 @@ def make_filters(argslist):
 
         if op is None:
             op = arg
-            
+
         if getVal:
             valu = arg
             getVal = False
@@ -309,7 +309,7 @@ def make_filters(argslist):
 
     if current_filter_list.length():
         return_filter.push_filter(current_filter_list)
-        
+
     if return_filter.length() == 0:
         print "Error: Must have at least one filter"
         sys.exit(1)
@@ -360,7 +360,7 @@ if __name__ == "__main__":
     clear_cached_files = False
 
     find_mailman_url = False
-    
+
     for o,a in optlist:
         if o == '-o':
             mbx = mailbox.mbox(a)
@@ -375,7 +375,7 @@ if __name__ == "__main__":
     if len(args) == 0:
         usage()
         sys.exit(1)
-    
+
     found_message = False
     filters = None
 
@@ -391,7 +391,7 @@ if __name__ == "__main__":
                 archive_list = url_open(BaseUrl + arch.replace('.txt.gz', '/thread.html')).replace('\n', ' ').replace('\r', ' ')
             except:
                 archive_list = None
-        
+
         mailarch_url = BaseUrl + arch
         if not clear_cached_files:
             if filters is None:
@@ -424,7 +424,7 @@ if __name__ == "__main__":
             delfile = cached_url_filename(mailarch_url)
             print "Removing [%s]" % delfile
             os.remove(delfile)
-            
+
     if found_message:
         sys.exit(0)
     sys.exit(1)
