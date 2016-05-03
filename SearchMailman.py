@@ -34,6 +34,8 @@ import os
 import datetime
 import getopt
 
+__patch_id = re.compile(r'.*PATCH.* (?P<patch_num>[0-9]+)/([0-9]+).*')
+
 class streammedMbox(mailbox.mbox):
     def __init__(self, stringOfBytes):
         self._file = StringIO.StringIO(stringOfBytes)
@@ -413,6 +415,12 @@ if __name__ == "__main__":
             newmsgs = mbox_messages_matching(mailarch_url, filters)
             for message in newmsgs:
                 found_message = True
+                subj = message['subject'].replace('\r', ' ').replace('\n', ' ').replace('\t', '')
+                print "%s (%s) %s" % (message['from'], subj, message['date'])
+                if 'PATCH' in subj:
+                    match = __patch_id.match(subj)
+                    if match:
+                        mailnum = int(match.group('patch_num'))
                 if individual_files:
                     mbx = mailbox.mbox('%s/%04d.mbox' % (mbx_dir, mailnum))
                 if mbx is not None: mbx.add(message)
@@ -420,8 +428,6 @@ if __name__ == "__main__":
                     mbx.close()
                     mbx = None
                 mailnum += 1
-                subj = message['subject'].replace('\r', ' ').replace('\n', ' ').replace('\t', '')
-                print "%s (%s) %s" % (message['from'], subj, message['date'])
                 if find_mailman_url and archive_list:
                     print " * Searching URLs at %s" % BaseUrl + arch.replace('.txt.gz', '/thread.html')
 
