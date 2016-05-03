@@ -103,7 +103,12 @@ def cached_url_open(url, is_zipped=False):
     return result
 
 def mailman_archives(MailmanUrl):
-    html = cached_url_open(MailmanUrl)
+    try:
+        html = cached_url_open(MailmanUrl)
+    except:
+        print "Unable to open [%s]" % MailmanUrl
+        return None
+    
     grp = re.findall('href="[^"]+.txt.gz"', html)
 
     archives = []
@@ -117,7 +122,11 @@ def mailman_archives(MailmanUrl):
 
 def get_mailman_mailbox_from_archive(ArchiveUrl):
     # print "Scanning %s" % ArchiveUrl
-    unzipped = cached_url_open(ArchiveUrl, True)
+    try:
+        unzipped = cached_url_open(ArchiveUrl, True)
+    except:
+        print "Unable to open mailbox [%s]" % ArchiveUrl
+        return None
     #unzipped = gzip.GzipFile(fileobj=StringIO.StringIO(zipped))
 
     return streammedMbox(unzipped)
@@ -358,12 +367,16 @@ if __name__ == "__main__":
         sys.exit(1)
 
     clear_cached_files = False
-
+    individual_files = False
     find_mailman_url = False
 
     for o,a in optlist:
         if o == '-o':
-            mbx = mailbox.mbox(a)
+            if not os.path.isdir(a):
+                mbx = mailbox.mbox(a)
+            else:
+                mbx_dir = a
+                individual_files = True
         elif o == '-c':
             clear_cached_files = True
         elif o == '-h':
@@ -393,13 +406,20 @@ if __name__ == "__main__":
                 archive_list = None
 
         mailarch_url = BaseUrl + arch
+        mailnum = 0
         if not clear_cached_files:
             if filters is None:
                 filters = make_filters(args[1:])
             newmsgs = mbox_messages_matching(mailarch_url, filters)
             for message in newmsgs:
                 found_message = True
+                if individual_files:
+                    mbx = mailbox.mbox('%s/%04d.mbox' % (mbx_dir, mailnum))
                 if mbx is not None: mbx.add(message)
+                if individual_files and mbx is not None:
+                    mbx.close()
+                    mbx = None
+                mailnum += 1
                 subj = message['subject'].replace('\r', ' ').replace('\n', ' ').replace('\t', '')
                 print "%s (%s) %s" % (message['from'], subj, message['date'])
                 if find_mailman_url and archive_list:
