@@ -34,7 +34,7 @@ import os
 import datetime
 import getopt
 
-__patch_id = re.compile(r'.*PATCH.* (?P<patch_num>[0-9]+)/([0-9]+).*')
+__patch_id = re.compile(r'^\[.*PATCH.* (?P<patch_num>[0-9]+)/([0-9]+).*] (?P<patch_subj>.*)')
 
 class streammedMbox(mailbox.mbox):
     def __init__(self, stringOfBytes):
@@ -217,6 +217,26 @@ class and_filter(match_filter):
     def does_match(self, message):
         return self.part_match(message)
 
+class threaded_and_filter(and_filter):
+    def __init__(self, filter_list):
+        self._filters = filter_list
+        self._replyto_ids = []
+
+    def does_match(self, message):
+        result = self.part_match(message)
+        inreplyto = message['In-Reply-To']
+        if inreplyto is None:
+            return result
+        if result is match_filter.MATCH_TYPE_UNMATCHED:
+            if inreplyto in self._replyto_ids:
+                result = match_filter.MATCH_TYPE_PARTIAL
+                self._replyto_ids.append(inreplyto)
+                print "added in-reply-to %s" % inreplyto
+        else:
+            self._replyto_ids.append(inreplyto)
+            print "added in-reply-to %s" % inreplyto
+        return result
+
 class or_filter(match_filter):
     def __init__(self, filter_list):
         self._filters = filter_list
@@ -251,12 +271,15 @@ def mbox_messages_matching(ArchiveUrl, TopFilter):
 def string_match_in_list(string, lst):
     return any(string in item for item in lst)
 
-def make_filters(argslist):
+def make_filters(argslist, threaded_search=False):
     part = None
     op = None
     valu = None
 
-    return_filter = and_filter([])
+    if threaded_search:
+        return_filter = threaded_and_filter([])
+    else:
+        return_filter = and_filter([])
 
     current_filter_list = and_filter([])
 
@@ -357,20 +380,26 @@ def usage():
     print "'and' or '&' values. These behave as polish-notation operators, so they"
     print "apply to every filter specified AFTER their appearance."
 
+def conv_subj(subject, match):
+    if match:
+        real_subj = match.group('patch_subj')
+    else:
+        real_subj = subject
+    return real_subj.replace('/', '_').replace(' ', '_').replace('\\','_').replace('*', '_')
+
 if __name__ == "__main__":
 
     mbx = None
-
     try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'o:chu')
+        optlist, args = getopt.getopt(sys.argv[1:], 'o:chtu')
     except:
-        print "Failed to getopt:"
-        print args
+        print "Failed to getopt: %s" % (' '.join(sys.argv[1:]))
         sys.exit(1)
 
     clear_cached_files = False
     individual_files = False
     find_mailman_url = False
+    threaded_search = False
 
     for o,a in optlist:
         if o == '-o':
@@ -384,6 +413,8 @@ if __name__ == "__main__":
         elif o == '-h':
             usage()
             sys.exit(0)
+        elif o == '-t':
+            threaded_search = True
         elif o == '-u':
             find_mailman_url = True
 
@@ -409,20 +440,24 @@ if __name__ == "__main__":
 
         mailarch_url = BaseUrl + arch
         mailnum = 0
+        thread_replies_is = []
         if not clear_cached_files:
             if filters is None:
-                filters = make_filters(args[1:])
+                filters = make_filters(args[1:], threaded_search)
             newmsgs = mbox_messages_matching(mailarch_url, filters)
             for message in newmsgs:
                 found_message = True
                 subj = message['subject'].replace('\r', ' ').replace('\n', ' ').replace('\t', '')
                 print "%s (%s) %s" % (message['from'], subj, message['date'])
+                match = None
                 if 'PATCH' in subj:
                     match = __patch_id.match(subj)
                     if match:
                         mailnum = int(match.group('patch_num'))
                 if individual_files:
-                    mbx = mailbox.mbox('%s/%04d.mbox' % (mbx_dir, mailnum))
+                    mbx = mailbox.mbox('%s/%04d-%s.mbox' %
+                                       (mbx_dir, mailnum,
+                                        conv_subj(subj, match)))
                 if mbx is not None: mbx.add(message)
                 if individual_files and mbx is not None:
                     mbx.close()
