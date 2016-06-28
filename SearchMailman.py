@@ -26,6 +26,7 @@
 
 import gzip
 import StringIO
+import urllib
 import urllib2
 import re
 import sys
@@ -33,8 +34,14 @@ import mailbox
 import os
 import datetime
 import getopt
+import ssl
 
 __patch_id = re.compile(r'^\[.*PATCH.* (?P<patch_num>[0-9]+)/([0-9]+).*] (?P<patch_subj>.*)')
+
+accept_all_certs = False
+login_user = None
+login_pass = None
+opener = None
 
 class streammedMbox(mailbox.mbox):
     def __init__(self, stringOfBytes):
@@ -72,9 +79,43 @@ def cached_url_filename(url):
     if not os.path.exists(path_to_fs):
         os.makedirs(path_to_fs)
     return path_to_fs + '/' + fs_converted_url
-    
+
+def url_open_resp(url):
+    global opener, login_user, login_pass
+    if not opener:
+        print "building opener"
+        if login_user:
+            opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
+        else:
+            opener = urllib2.build_opener()
+        urllib2.install_opener(opener)
+
+    if login_user:
+        params = None
+        params = urllib.urlencode(dict(username=login_user,
+                                       password=login_pass))
+
+        if not accept_all_certs:
+            response = urllib2.urlopen(url, data=params)
+        else:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            response = urllib2.urlopen(url, data=params, context=ctx)
+        return response
+
+    if not accept_all_certs:
+        response = urllib2.urlopen(url)
+    else:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        response = urllib2.urlopen(url, context=ctx)
+
+    return response
+
 def url_open(url):
-    response = urllib2.urlopen(url)
+    response = url_open_resp(url)
     return response.read()
     
 def cached_url_open(url, is_zipped=False):
@@ -83,7 +124,7 @@ def cached_url_open(url, is_zipped=False):
         request = urllib2.Request(url)
         request.get_method = lambda : 'HEAD'
         try:
-            response = urllib2.urlopen(request)
+            response = url_open_resp(request)
             headers = response.info()
             webdate = webdatetime(headers['last-modified'])
         except:
@@ -109,7 +150,7 @@ def mailman_archives(MailmanUrl):
         html = cached_url_open(MailmanUrl)
     except:
         print "Unable to open [%s]" % MailmanUrl
-        return None
+        return []
     
     grp = re.findall('href="[^"]+.txt.gz"', html)
 
@@ -356,9 +397,12 @@ def usage():
     print "Entries are reported in time descending order (most recent first)"
     print ""
     print "Options:"
+    print " -a                        Accept all SSL Certificates"
     print " -c                        Clear archive cache instead of search"
+    print " -l [USER:PASSWORD]        Set login information"
     print " -o [PATH]                 Save off matches to the path specified"
     print " -u                        Seek the Mailman URL for this message (net only)"
+    print " -t                        Threaded searching (tries to follow replies)"
     print " -h                        This help message"
     print ""
     print "Filter:"
@@ -391,7 +435,7 @@ if __name__ == "__main__":
 
     mbx = None
     try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'o:chtu')
+        optlist, args = getopt.getopt(sys.argv[1:], 'l:o:achtu')
     except:
         print "Failed to getopt: %s" % (' '.join(sys.argv[1:]))
         sys.exit(1)
@@ -408,6 +452,13 @@ if __name__ == "__main__":
             else:
                 mbx_dir = a
                 individual_files = True
+        elif o == '-l':
+            first_split = a.find(':')
+            login_user = a[:first_split]
+            if first_split != -1:
+                login_pass = a[first_split+1:]
+        elif o == '-a':
+            accept_all_certs = True
         elif o == '-c':
             clear_cached_files = True
         elif o == '-h':
@@ -418,10 +469,16 @@ if __name__ == "__main__":
         elif o == '-u':
             find_mailman_url = True
 
+
     if len(args) == 0:
         usage()
         sys.exit(1)
 
+    if os.getenv('SMA_LOGIN_USER'):
+        login_user = os.getenv('SMA_LOGIN_USER')
+    if os.getenv('SMA_LOGIN_PASSWORD'):
+        login_pass = os.getenv('SMA_LOGIN_PASS')
+        
     found_message = False
     filters = None
 
