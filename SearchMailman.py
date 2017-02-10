@@ -504,7 +504,10 @@ if __name__ == "__main__":
             newmsgs = mbox_messages_matching(mailarch_url, filters)
             for message in newmsgs:
                 found_message = True
-                subj = message['subject'].replace('\r', ' ').replace('\n', ' ').replace('\t', '')
+                subj = message['subject']
+                if subj is None:
+                    continue
+                subj = subj.replace('\r', ' ').replace('\n', ' ').replace('\t', '')
                 print "%s (%s) %s" % (message['from'], subj, message['date'])
                 match = None
                 if 'PATCH' in subj:
