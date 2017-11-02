@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2015, Red Hat Inc.
+# Copyright (C) 2015-2017, Red Hat Inc.
 #
 # Search a mailman archive and extract all emails which match the filters
 # specified, storing the results in an mbox-style file, appending if one
@@ -33,8 +33,11 @@ import sys
 import mailbox
 import os
 import datetime
+import time
 import getopt
 import ssl
+import email.utils
+import timestring
 
 __patch_id = re.compile(r'^\[.*PATCH.* (?P<patch_num>[0-9]+)/([0-9]+).*] (?P<patch_subj>.*)')
 
@@ -221,12 +224,25 @@ class match_filter(object):
         else:
             return self.part_match(message[self._mail_section])
 
-# TODO: need to write a proper date matching entity
 class date_filter(match_filter):
     BEFORE_DATE = 0
     AFTER_DATE = 1
-    def __init__(self, dateToMatchStr):
+    def __init__(self, dateToMatchStr, before):
         self._match_regex = False
+        self._match_data = timestring.Date(dateToMatchStr).to_unixtime()
+        self._mail_section = 'Date'
+        self._before = before
+
+    def part_match(self, date_string):
+        date_to_check = email.utils.mktime_tz(email.utils.parsedate_tz(date_string))
+        if self._before:
+            if self._match_data > date_to_check:
+                return match_filter.MATCH_TYPE_EXACT
+        else:
+            if self._match_data <= date_to_check:
+                return match_filter.MATCH_TYPE_EXACT
+
+        return match_filter.MATCH_TYPE_UNMATCHED
 
 class and_filter(match_filter):
     def __init__(self, filter_list):
@@ -332,6 +348,9 @@ def make_filters(argslist, threaded_search=False):
                 else:
                     current_filter_list = or_filter([])
                     part = None
+            elif string_match_in_list(part, ["before", "earlier", "after", "since"]):
+                op = part
+                getVal = True
             continue
 
         if op is None:
@@ -361,6 +380,18 @@ def make_filters(argslist, threaded_search=False):
                     current_filter_list.push_filter(match_filter(part, match_filter.NOT_REQUIRED_EXACT_MATCH, valu))
                 else:
                     current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_NOT_MATCH, valu))
+            else:
+                getVal = True
+                continue
+        elif string_match_in_list(op, ["before", "earlier", "after", "since"]):
+            isBefore = True
+            if string_match_in_list(op, ["after", "since"]):
+                isBefore = False
+            if negateFlag:
+                isBefore = not isBefore
+
+            if valu is not None:
+                current_filter_list.push_filter(date_filter(valu, isBefore))
             else:
                 getVal = True
                 continue
