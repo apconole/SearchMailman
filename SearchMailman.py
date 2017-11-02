@@ -82,30 +82,20 @@ def cached_url_filename(url):
 
 def url_open_resp(url):
     global opener, login_user, login_pass
-    if not opener:
-        print "building opener"
+    if not opener and login_user:
         if login_user:
             opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
         else:
             opener = urllib2.build_opener()
         urllib2.install_opener(opener)
 
+    params=None
     if login_user:
-        params = None
         params = urllib.urlencode(dict(username=login_user,
                                        password=login_pass))
 
-        if not accept_all_certs:
-            response = urllib2.urlopen(url, data=params)
-        else:
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            response = urllib2.urlopen(url, data=params, context=ctx)
-        return response
-
     if not accept_all_certs:
-        response = urllib2.urlopen(url)
+        response = urllib2.urlopen(url, data=params)
     else:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
