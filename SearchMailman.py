@@ -107,7 +107,7 @@ def url_open_resp(url):
 def url_open(url):
     response = url_open_resp(url)
     return response.read()
-    
+
 def cached_url_open(url, is_zipped=False):
     fs_converted_url = cached_url_filename(url)
     if os.path.exists(fs_converted_url):
@@ -123,16 +123,16 @@ def cached_url_open(url, is_zipped=False):
         if filedate >= webdate:
             fileop = open(fs_converted_url, 'r')
             return fileop.read()
-        
+
     result = url_open(url)
 
     if is_zipped:
         zipdata = gzip.GzipFile(fileobj=StringIO.StringIO(result))
         result = zipdata.read()
-    
+
     fileop = open(fs_converted_url, 'w')
     fileop.write(result)
-    
+
     return result
 
 def mailman_archives(MailmanUrl):
