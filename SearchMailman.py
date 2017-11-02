@@ -38,6 +38,7 @@ import getopt
 import ssl
 import email.utils
 import timestring
+import subprocess
 
 __patch_id = re.compile(r'^\[.*PATCH.* (?P<patch_num>[0-9]+)/([0-9]+).*] (?P<patch_subj>.*)')
 
@@ -456,7 +457,7 @@ if __name__ == "__main__":
 
     mbx = None
     try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'l:o:achtu')
+        optlist, args = getopt.getopt(sys.argv[1:], 'l:o:e:achtu')
     except:
         print "Failed to getopt: %s" % (' '.join(sys.argv[1:]))
         sys.exit(1)
@@ -465,6 +466,7 @@ if __name__ == "__main__":
     individual_files = False
     find_mailman_url = False
     threaded_search = False
+    exec_arg = None
 
     for o,a in optlist:
         if o == '-o':
@@ -480,6 +482,8 @@ if __name__ == "__main__":
                 login_pass = a[first_split+1:]
         elif o == '-a':
             accept_all_certs = True
+        elif o == '-e':
+            exec_arg = a
         elif o == '-c':
             clear_cached_files = True
         elif o == '-h':
@@ -543,6 +547,12 @@ if __name__ == "__main__":
                 if individual_files and mbx is not None:
                     mbx.close()
                     mbx = None
+                if exec_arg:
+                    p = subprocess.Popen(exec_arg, stdin=subprocess.PIPE)
+                    p.communicate(input=str(message))
+                    p.stdin.close()
+                    p.wait()
+
                 mailnum += 1
                 if find_mailman_url and archive_list:
                     print " * Searching URLs at %s" % BaseUrl + arch.replace('.txt.gz', '/thread.html')
