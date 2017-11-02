@@ -565,7 +565,8 @@ if __name__ == "__main__":
         else:
             delfile = cached_url_filename(mailarch_url)
             print "Removing [%s]" % delfile
-            os.remove(delfile)
+            if os.path.exists(delfile):
+                os.remove(delfile)
 
     if found_message:
         sys.exit(0)
