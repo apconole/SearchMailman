@@ -33,7 +33,6 @@ import sys
 import mailbox
 import os
 import datetime
-import time
 import getopt
 import ssl
 import email.utils
@@ -453,8 +452,7 @@ def conv_subj(subject, match):
         real_subj = subject
     return real_subj.replace('/', '_').replace(' ', '_').replace('\\','_').replace('*', '_')
 
-if __name__ == "__main__":
-
+def run_main():
     mbx = None
     try:
         optlist, args = getopt.getopt(sys.argv[1:], 'l:o:e:achtu')
@@ -581,3 +579,10 @@ if __name__ == "__main__":
     if found_message:
         sys.exit(0)
     sys.exit(1)
+
+
+if __name__ == "__main__":
+    try:
+        run_main()
+    except KeyboardInterrupt:
+        print("Stopped.")
