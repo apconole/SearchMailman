@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2015-2017, Red Hat Inc.
+# Copyright (C) 2015-2019 Red Hat Inc.
 #
 # Search a mailman archive and extract all emails which match the filters
 # specified, storing the results in an mbox-style file, appending if one
@@ -39,12 +39,14 @@ import email.utils
 import timestring
 import subprocess
 
-__patch_id = re.compile(r'^\[.*PATCH.* (?P<patch_num>[0-9]+)/([0-9]+).*] (?P<patch_subj>.*)')
+__patch_id = re.compile(
+    r'^\[.*PATCH.* (?P<patch_num>[0-9]+)/([0-9]+).*] (?P<patch_subj>.*)')
 
 accept_all_certs = False
 login_user = None
 login_pass = None
 opener = None
+
 
 class streammedMbox(mailbox.mbox):
     def __init__(self, stringOfBytes):
@@ -55,13 +57,14 @@ class streammedMbox(mailbox.mbox):
         self._locked = False
         self._file_length = None
         self._factory = None
-        self._path='/dev/null'
+        self._path = '/dev/null'
         self._message_factory = mailbox.mboxMessage
+
 
 def webdatetime(txt):
     if txt is None or txt == '':
         return datetime.now()
-    
+
     try:
         txt_split = txt.split(" ")
         txt_split = txt_split[:-1]
@@ -71,6 +74,7 @@ def webdatetime(txt):
         print "Error converting %s" % txt
         raise v
 
+
 def cached_url_filename(url):
     fs_converted_url = re.sub('[/:@]+', '_', url)
 
@@ -78,10 +82,11 @@ def cached_url_filename(url):
         path_to_fs = os.getenv("SMA_CACHE_LOCATION")
     else:
         path_to_fs = os.path.expanduser('~') + '/.sma_cache'
-        
+
     if not os.path.exists(path_to_fs):
         os.makedirs(path_to_fs)
     return path_to_fs + '/' + fs_converted_url
+
 
 def url_open_resp(url):
     global opener, login_user, login_pass
@@ -92,7 +97,7 @@ def url_open_resp(url):
             opener = urllib2.build_opener()
         urllib2.install_opener(opener)
 
-    params=None
+    params = None
     if login_user:
         params = urllib.urlencode(dict(username=login_user,
                                        password=login_pass))
@@ -107,22 +112,25 @@ def url_open_resp(url):
 
     return response
 
+
 def url_open(url):
     response = url_open_resp(url)
     return response.read()
+
 
 def cached_url_open(url, is_zipped=False):
     fs_converted_url = cached_url_filename(url)
     if os.path.exists(fs_converted_url):
         request = urllib2.Request(url)
-        request.get_method = lambda : 'HEAD'
+        request.get_method = lambda: 'HEAD'
         try:
             response = url_open_resp(request)
             headers = response.info()
             webdate = webdatetime(headers['last-modified'])
         except:
             webdate = datetime.datetime.fromtimestamp(0.0)
-        filedate = datetime.datetime.fromtimestamp(os.path.getmtime(fs_converted_url))
+        filedate = datetime.datetime.fromtimestamp(
+                                    os.path.getmtime(fs_converted_url))
         if filedate >= webdate:
             fileop = open(fs_converted_url, 'r')
             return fileop.read()
@@ -138,13 +146,14 @@ def cached_url_open(url, is_zipped=False):
 
     return result
 
+
 def mailman_archives(MailmanUrl):
     try:
         html = cached_url_open(MailmanUrl)
     except:
         print "Unable to open [%s]" % MailmanUrl
         return []
-    
+
     grp = re.findall('href="[^"]+.txt.gz"', html)
 
     archives = []
@@ -156,6 +165,7 @@ def mailman_archives(MailmanUrl):
 
     return archives
 
+
 def get_mailman_mailbox_from_archive(ArchiveUrl):
     # print "Scanning %s" % ArchiveUrl
     try:
@@ -163,12 +173,13 @@ def get_mailman_mailbox_from_archive(ArchiveUrl):
     except:
         print "Unable to open mailbox [%s]" % ArchiveUrl
         return None
-    #unzipped = gzip.GzipFile(fileobj=StringIO.StringIO(zipped))
+#   unzipped = gzip.GzipFile(fileobj=StringIO.StringIO(zipped))
 
     return streammedMbox(unzipped)
 
+
 class match_filter(object):
-    REQUIRED_MATCH=0
+    REQUIRED_MATCH = 0
     REQUIRED_NOT_MATCH = 1
     NOT_REQUIRED_EXACT_MATCH = 2
 
@@ -180,7 +191,7 @@ class match_filter(object):
         if match_type != match_filter.REQUIRED_MATCH:
             self._match_regex = True
 
-    MATCH_TYPE_EXACT=0
+    MATCH_TYPE_EXACT = 0
     MATCH_TYPE_PARTIAL = 1
     MATCH_TYPE_UNMATCHED = 2
     MATCH_TYPE_REGEX = 3
@@ -193,12 +204,14 @@ class match_filter(object):
 
         if part_text is not None and part_text == self._match_data:
             matching_type = match_filter.MATCH_TYPE_EXACT
-        elif self._match_regex and self._match_data is not None and part_text is not None:
+        elif self._match_regex and self._match_data is not None and \
+             part_text is not None:
             result = re.findall(self._match_data, part_text)
             if result is not None and len(result) > 0:
                 matching_type = match_filter.MATCH_TYPE_REGEX
 
-        if part_text is not None and matching_type is None and self._match_data in part_text:
+        if part_text is not None and matching_type is None and \
+           self._match_data in part_text:
             matching_type = match_filter.MATCH_TYPE_PARTIAL
 
         if self._match_type == match_filter.REQUIRED_MATCH:
@@ -214,7 +227,7 @@ class match_filter(object):
 
         return matching_type
 
-    def does_match(self, message, recur = False):
+    def does_match(self, message, recur=False):
         if recur or self._mail_section == 'body':
             if message.is_multipart():
                 for part in message.get_payload():
@@ -224,9 +237,11 @@ class match_filter(object):
         else:
             return self.part_match(message[self._mail_section])
 
+
 class date_filter(match_filter):
     BEFORE_DATE = 0
     AFTER_DATE = 1
+
     def __init__(self, dateToMatchStr, before):
         self._match_regex = False
         self._match_data = timestring.Date(dateToMatchStr).to_unixtime()
@@ -234,7 +249,8 @@ class date_filter(match_filter):
         self._before = before
 
     def part_match(self, date_string):
-        date_to_check = email.utils.mktime_tz(email.utils.parsedate_tz(date_string))
+        date_to_check = email.utils.mktime_tz(
+            email.utils.parsedate_tz(date_string))
         if self._before:
             if self._match_data > date_to_check:
                 return match_filter.MATCH_TYPE_EXACT
@@ -243,6 +259,7 @@ class date_filter(match_filter):
                 return match_filter.MATCH_TYPE_EXACT
 
         return match_filter.MATCH_TYPE_UNMATCHED
+
 
 class and_filter(match_filter):
     def __init__(self, filter_list):
@@ -256,13 +273,15 @@ class and_filter(match_filter):
 
     def part_match(self, part_text):
         for mfilter in self._filters:
-            if mfilter.does_match(part_text) == match_filter.MATCH_TYPE_UNMATCHED:
+            if mfilter.does_match(part_text) == \
+               match_filter.MATCH_TYPE_UNMATCHED:
                 return match_filter.MATCH_TYPE_UNMATCHED
 
         return match_filter.MATCH_TYPE_EXACT
 
     def does_match(self, message):
         return self.part_match(message)
+
 
 class threaded_and_filter(and_filter):
     def __init__(self, filter_list):
@@ -284,6 +303,7 @@ class threaded_and_filter(and_filter):
             print "added in-reply-to %s" % inreplyto
         return result
 
+
 class or_filter(match_filter):
     def __init__(self, filter_list):
         self._filters = filter_list
@@ -296,7 +316,8 @@ class or_filter(match_filter):
 
     def part_match(self, part_text):
         for mfilter in self._filters:
-            if mfilter.does_match(part_text) != match_filter.MATCH_TYPE_UNMATCHED:
+            if mfilter.does_match(part_text) != \
+               match_filter.MATCH_TYPE_UNMATCHED:
                 return match_filter.MATCH_TYPE_EXACT
 
         return match_filter.MATCH_TYPE_UNMATCHED
@@ -304,19 +325,23 @@ class or_filter(match_filter):
     def does_match(self, message):
         return self.part_match(message)
 
+
 def mbox_messages_matching(ArchiveUrl, TopFilter):
     mbx = get_mailman_mailbox_from_archive(ArchiveUrl)
     matchingMsgs = []
     for msgkey in mbx.iterkeys():
         message = mbx[msgkey]
-        matched = TopFilter.does_match(message) != match_filter.MATCH_TYPE_UNMATCHED
+        matched = TopFilter.does_match(message) != \
+            match_filter.MATCH_TYPE_UNMATCHED
         if matched:
             matchingMsgs.append(message)
 
     return matchingMsgs
 
+
 def string_match_in_list(string, lst):
     return any(string in item for item in lst)
+
 
 def make_filters(argslist, threaded_search=False):
     part = None
@@ -348,7 +373,8 @@ def make_filters(argslist, threaded_search=False):
                 else:
                     current_filter_list = or_filter([])
                     part = None
-            elif string_match_in_list(part, ["before", "earlier", "after", "since"]):
+            elif string_match_in_list(part,
+                                      ["before", "earlier", "after", "since"]):
                 op = part
                 getVal = True
             continue
@@ -362,24 +388,35 @@ def make_filters(argslist, threaded_search=False):
 
         if string_match_in_list(op, ["present" "available"]):
             if not negateFlag:
-                current_filter_list.push_filter(match_filter(part, match_filter.NOT_REQUIRED_EXACT_MATCH, '.*'))
+                current_filter_list.push_filter(
+                    match_filter(part, match_filter.NOT_REQUIRED_EXACT_MATCH,
+                                 '.*'))
             else:
-                current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_NOT_MATCH, '.*'))
+                current_filter_list.push_filter(
+                    match_filter(part, match_filter.REQUIRED_NOT_MATCH, '.*'))
         elif string_match_in_list(op, ["==", "equals", "is"]):
             if valu is not None:
                 if not negateFlag:
-                    current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_MATCH, valu))
+                    current_filter_list.push_filter(
+                        match_filter(part, match_filter.REQUIRED_MATCH, valu))
                 else:
-                    current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_NOT_MATCH, valu))
+                    current_filter_list.push_filter(
+                        match_filter(part, match_filter.REQUIRED_NOT_MATCH,
+                                     valu))
             else:
                 getVal = True
                 continue
         elif string_match_in_list(op, ["contains", "~="]):
             if valu is not None:
                 if not negateFlag:
-                    current_filter_list.push_filter(match_filter(part, match_filter.NOT_REQUIRED_EXACT_MATCH, valu))
+                    current_filter_list.push_filter(
+                        match_filter(part,
+                                     match_filter.NOT_REQUIRED_EXACT_MATCH,
+                                     valu))
                 else:
-                    current_filter_list.push_filter(match_filter(part, match_filter.REQUIRED_NOT_MATCH, valu))
+                    current_filter_list.push_filter(
+                        match_filter(part,
+                                     match_filter.REQUIRED_NOT_MATCH, valu))
             else:
                 getVal = True
                 continue
@@ -411,6 +448,7 @@ def make_filters(argslist, threaded_search=False):
         sys.exit(1)
 
     return return_filter
+
 
 def usage():
     print "Usage: %s [OPTIONS] ARCHIVE FILTER..." % sys.argv[0]
@@ -445,14 +483,18 @@ def usage():
     print "'and' or '&' values. These behave as polish-notation operators, so they"
     print "apply to every filter specified AFTER their appearance."
 
+
 def conv_subj(subject, match):
     if match:
         real_subj = match.group('patch_subj')
     else:
         real_subj = subject
-    return real_subj.replace('/', '_').replace(' ', '_').replace('\\','_').replace('*', '_')
+    return real_subj.replace('/', '_').replace(' ', '_'). \
+        replace('\\', '_').replace('*', '_')
+
 
 def run_main():
+    global login_user, login_pass, accept_all_certs, thread_replies_is
     mbx = None
     try:
         optlist, args = getopt.getopt(sys.argv[1:], 'l:o:e:achtu')
@@ -466,7 +508,7 @@ def run_main():
     threaded_search = False
     exec_arg = None
 
-    for o,a in optlist:
+    for o, a in optlist:
         if o == '-o':
             if not os.path.isdir(a):
                 mbx = mailbox.mbox(a)
@@ -492,7 +534,6 @@ def run_main():
         elif o == '-u':
             find_mailman_url = True
 
-
     if len(args) == 0:
         usage()
         sys.exit(1)
@@ -501,20 +542,24 @@ def run_main():
         login_user = os.getenv('SMA_LOGIN_USER')
     if os.getenv('SMA_LOGIN_PASSWORD'):
         login_pass = os.getenv('SMA_LOGIN_PASS')
-        
+
     found_message = False
     filters = None
 
     BaseUrl = args[0]
 
-    if os.getenv('SMA_ARCHIVE_URL') and not (BaseUrl.find("http://") == 0 or BaseUrl.find("https://") == 0):
-        MailMan, instances = re.subn("/mailman(/listinfo)?/?$", "/archives/", os.getenv('SMA_ARCHIVE_URL'))
+    if os.getenv('SMA_ARCHIVE_URL') and not (BaseUrl.find("http://") == 0 or
+                                             BaseUrl.find("https://") == 0):
+        MailMan, instances = re.subn("/mailman(/listinfo)?/?$", "/archives/",
+                                     os.getenv('SMA_ARCHIVE_URL'))
         BaseUrl = MailMan + args[0] + "/"
 
     for arch in mailman_archives(BaseUrl):
         if find_mailman_url:
             try:
-                archive_list = url_open(BaseUrl + arch.replace('.txt.gz', '/thread.html')).replace('\n', ' ').replace('\r', ' ')
+                archive_list = url_open(
+                    BaseUrl + arch.replace('.txt.gz', '/thread.html')). \
+                    replace('\n', ' ').replace('\r', ' ')
             except:
                 archive_list = None
 
@@ -530,7 +575,8 @@ def run_main():
                 subj = message['subject']
                 if subj is None:
                     continue
-                subj = subj.replace('\r', ' ').replace('\n', ' ').replace('\t', '')
+                subj = subj.replace('\r', ' ').replace('\n', ' '). \
+                    replace('\t', '')
                 print "%s (%s) %s" % (message['from'], subj, message['date'])
                 match = None
                 if 'PATCH' in subj:
@@ -541,7 +587,9 @@ def run_main():
                     mbx = mailbox.mbox('%s/%04d-%s.mbox' %
                                        (mbx_dir, mailnum,
                                         conv_subj(subj, match)))
-                if mbx is not None: mbx.add(message)
+                if mbx is not None:
+                    mbx.add(message)
+
                 if individual_files and mbx is not None:
                     mbx.close()
                     mbx = None
@@ -553,7 +601,8 @@ def run_main():
 
                 mailnum += 1
                 if find_mailman_url and archive_list:
-                    print " * Searching URLs at %s" % BaseUrl + arch.replace('.txt.gz', '/thread.html')
+                    print " * Searching URLs at %s" % \
+                        BaseUrl + arch.replace('.txt.gz', '/thread.html')
 
                     # first, try for mhonarc
                     subj_find = '<(a|A) (name|NAME)="([0-9]*)" (href|HREF)="(msg[0-9]*).html">' + subj.replace('[', '\\[').replace(']', '\\]') + "</(a|A)>(</(strong|STRONG)>),? ?(<(em|EM)>)?" + message['from'] + "(</(em|EM)>)? ?</?(ul|li|UL|LI)"
@@ -561,14 +610,19 @@ def run_main():
                     matches = list(matches)
                     if len(matches) == 0:
                         print " * Possibly pipermail"
-                        subj_find = '<LI><A HREF="([0-9]*.html)">' + subj.replace('[', '\\[').replace(']', '\\]')
+                        subj_find = '<LI><A HREF="([0-9]*.html)">' + \
+                            subj.replace('[', '\\[').replace(']', '\\]')
                         matches = re.finditer(subj_find, archive_list)
                         matches = list(matches)
 
                     for match in matches:
-                        msgurl_match = re.search('[0-9]*.html', match.string[match.start():match.end()])
-                        msgurl = msgurl_match.string[msgurl_match.start():msgurl_match.end()]
-                        print " *** %s" % BaseUrl + arch.replace('.txt.gz', '/') + msgurl
+                        msgurl_match = re.search('[0-9]*.html',
+                                                 match.string[match.start():
+                                                              match.end()])
+                        msgurl = msgurl_match.string[msgurl_match.start():
+                                                     msgurl_match.end()]
+                        print " *** %s" % \
+                            BaseUrl + arch.replace('.txt.gz', '/') + msgurl
                     print " * Done."
         else:
             delfile = cached_url_filename(mailarch_url)
