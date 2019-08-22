@@ -173,7 +173,10 @@ def get_mailman_mailbox_from_archive(ArchiveUrl):
     except:
         print "Unable to open mailbox [%s]" % ArchiveUrl
         return None
-#   unzipped = gzip.GzipFile(fileobj=StringIO.StringIO(zipped))
+    # Check for gzipped file
+    if unzipped[0] == '\x1f' and unzipped[1] == '\x8b':
+        zipped = unzipped
+        unzipped = gzip.GzipFile(fileobj=StringIO.StringIO(zipped))
 
     return streammedMbox(unzipped)
 
@@ -458,7 +461,9 @@ def usage():
     print "Options:"
     print " -a                        Accept all SSL Certificates"
     print " -c                        Clear archive cache instead of search"
+    print " -d                        Dump matching messages in mbox format"
     print " -l [USER:PASSWORD]        Set login information"
+    print " -m [NUM]                  Match only NUM messages and then exit"
     print " -o [PATH]                 Save off matches to the path specified"
     print " -u                        Seek the Mailman URL for this message (net only)"
     print " -t                        Threaded searching (tries to follow replies)"
@@ -497,7 +502,7 @@ def run_main():
     global login_user, login_pass, accept_all_certs, thread_replies_is
     mbx = None
     try:
-        optlist, args = getopt.getopt(sys.argv[1:], 'l:o:e:achtu')
+        optlist, args = getopt.getopt(sys.argv[1:], 'l:o:e:m:achtud')
     except:
         print "Failed to getopt: %s" % (' '.join(sys.argv[1:]))
         sys.exit(1)
@@ -507,6 +512,8 @@ def run_main():
     find_mailman_url = False
     threaded_search = False
     exec_arg = None
+    match_total = -1
+    dump_msgs = False
 
     for o, a in optlist:
         if o == '-o':
@@ -526,6 +533,10 @@ def run_main():
             exec_arg = a
         elif o == '-c':
             clear_cached_files = True
+        elif o == '-d':
+            dump_msgs = True
+        elif o == '-m':
+            match_total = int(a)
         elif o == '-h':
             usage()
             sys.exit(0)
@@ -605,25 +616,34 @@ def run_main():
                         BaseUrl + arch.replace('.txt.gz', '/thread.html')
 
                     # first, try for mhonarc
-                    subj_find = '<(a|A) (name|NAME)="([0-9]*)" (href|HREF)="(msg[0-9]*).html">' + subj.replace('[', '\\[').replace(']', '\\]') + "</(a|A)>(</(strong|STRONG)>),? ?(<(em|EM)>)?" + message['from'] + "(</(em|EM)>)? ?</?(ul|li|UL|LI)"
-                    matches = re.finditer(subj_find, archive_list)
-                    matches = list(matches)
+                    subj_find = '<(a|A) (name|NAME)="([0-9]*)" (href|HREF)="(msg[0-9]*).html">' + subj.replace('[', '\\[').replace(']', '\\]') + "</(a|A)>(</(strong|STRONG)>),? ?(<(em|EM)>)?(" + message['from'] + ")?(</(em|EM)>)? ?<?/?(ul|li|UL|LI)?"
+                    re_matches = re.finditer(subj_find, archive_list)
+                    matches = list(re_matches)
                     if len(matches) == 0:
                         print " * Possibly pipermail"
                         subj_find = '<LI><A HREF="([0-9]*.html)">' + \
                             subj.replace('[', '\\[').replace(']', '\\]')
-                        matches = re.finditer(subj_find, archive_list)
-                        matches = list(matches)
+                        re_matches = re.finditer(subj_find, archive_list)
+                        matches = list(re_matches)
 
                     for match in matches:
-                        msgurl_match = re.search('[0-9]*.html',
+                        msgurl_match = re.search('(msg)?[0-9]*.html',
                                                  match.string[match.start():
                                                               match.end()])
-                        msgurl = msgurl_match.string[msgurl_match.start():
-                                                     msgurl_match.end()]
+                        if msgurl_match:
+                            msgurl = msgurl_match.string[msgurl_match.start():
+                                                         msgurl_match.end()]
+                        else:
+                            msgurl = match.group(0)
                         print " *** %s" % \
                             BaseUrl + arch.replace('.txt.gz', '/') + msgurl
                     print " * Done."
+                if dump_msgs:
+                    print message
+                if match_total != -1:
+                    match_total -= 1
+                    if match_total <= 0:
+                        sys.exit(0)
         else:
             delfile = cached_url_filename(mailarch_url)
             print "Removing [%s]" % delfile
